@@ -1,0 +1,19 @@
+mental-health-tracker/
+├── docs/
+│   ├── PRD.md
+│   └── wireframes.md
+├── api/
+│   ├── supabase/            # Supabase config, auth logic
+│   ├── mongodb/             # MongoDB models, connections
+│   └── routes/              # API endpoints (mood, journal, user)
+├── app/
+│   ├── components/          # React components (MoodCheckin, JournalEntry, etc.)
+│   ├── pages/               # Next.js pages (dashboard, analytics, etc.)
+│   ├── styles/              # CSS/SCSS files
+│   └── utils/               # Helper functions
+├── ai/
+│   ├── n8n-workflows/       # n8n AI workflow configs
+│   └── test-scripts/        # AI testing scripts
+├── .env                     # Environment variables
+├── README.md                # Project overview & Loom walkthrough
+└── vercel.json              # Vercel config
