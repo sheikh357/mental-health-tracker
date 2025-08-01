@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Log Mood - Mental Health Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header">
+                <h3><i class="fas fa-edit me-2"></i>Log Your Mood</h3>
+                <p class="mb-0 text-muted">Take a moment to reflect on how you're feeling today</p>
+            </div>
+            <div class="card-body">
+                <form id="moodForm">
+                    <!-- Mood Score -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <strong>Overall Mood</strong>
+                            <span class="text-muted">(1 = Very Low, 10 = Excellent)</span>
+                        </label>
+                        <div class="d-flex align-items-center">
+                            <span class="me-3">1</span>
+                            <input type="range" class="form-range flex-grow-1" id="moodScore" min="1" max="10" value="5">
+                            <span class="ms-3">10</span>
+                        </div>
+                        <div class="text-center mt-2">
+                            <span class="badge bg-primary fs-6" id="moodValue">5</span>
+                        </div>
+                    </div>
+
+                    <!-- Emotions -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>Emotions</strong></label>
+                        <div class="row" id="emotionsGrid">
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="happy">
+                                    😊 Happy
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="sad">
+                                    😢 Sad
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="anxious">
+                                    😰 Anxious
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="angry">
+                                    😠 Angry
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="excited">
+                                    🤗 Excited
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="calm">
+                                    😌 Calm
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="stressed">
+                                    😫 Stressed
+                                </button>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <button type="button" class="btn btn-outline-secondary emotion-btn w-100" data-emotion="grateful">
+                                    🙏 Grateful
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Energy Level -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <strong>Energy Level</strong>
+                            <span class="text-muted">(1 = Exhausted, 10 = Very Energetic)</span>
+                        </label>
+                        <div class="d-flex align-items-center">
+                            <span class="me-3">1</span>
+                            <input type="range" class="form-range flex-grow-1" id="energyLevel" min="1" max="10" value="5">
+                            <span class="ms-3">10</span>
+                        </div>
+                        <div class="text-center mt-2">
+                            <span class="badge bg-warning fs-6" id="energyValue">5</span>
+                        </div>
+                    </div>
+
+                    <!-- Sleep Hours -->
+                    <div class="mb-4">
+                        <label for="sleepHours" class="form-label"><strong>Sleep Hours (last night)</strong></label>
+                        <input type="number" class="form-control" id="sleepHours" min="0" max="24" step="0.5" placeholder="e.g., 7.5">
+                    </div>
+
+                    <!-- Stress Level -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <strong>Stress Level</strong>
+                            <span class="text-muted">(1 = No Stress, 10 = Very Stressed)</span>
+                        </label>
+                        <div class="d-flex align-items-center">
+                            <span class="me-3">1</span>
+                            <input type="range" class="form-range flex-grow-1" id="stressLevel" min="1" max="10" value="5">
+                            <span class="ms-3">10</span>
+                        </div>
+                        <div class="text-center mt-2">
+                            <span class="badge bg-danger fs-6" id="stressValue">5</span>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-4">
+                        <label for="notes" class="form-label"><strong>Notes</strong></label>
+                        <textarea class="form-control" id="notes" rows="4" placeholder="What's on your mind? How was your day?"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-save me-2"></i>Save Mood Entry
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const moodScore = document.getElementById('moodScore');
+    const moodValue = document.getElementById('moodValue');
+    const energyLevel = document.getElementById('energyLevel');
+    const energyValue = document.getElementById('energyValue');
+    const stressLevel = document.getElementById('stressLevel');
+    const stressValue = document.getElementById('stressValue');
+    const emotionBtns = document.querySelectorAll('.emotion-btn');
+    const moodForm = document.getElementById('moodForm');
+
+    // Update slider values
+    moodScore.addEventListener('input', () => {
+        moodValue.textContent = moodScore.value;
+    });
+
+    energyLevel.addEventListener('input', () => {
+        energyValue.textContent = energyLevel.value;
+    });
+
+    stressLevel.addEventListener('input', () => {
+        stressValue.textContent = stressLevel.value;
+    });
+
+    // Handle emotion selection
+    emotionBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.classList.toggle('active');
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-secondary');
+            } else {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-secondary');
+            }
+        });
+    });
+
+    // Handle form submission
+    moodForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const selectedEmotions = [];
+        emotionBtns.forEach(btn => {
+            if (btn.classList.contains('active')) {
+                selectedEmotions.push(btn.dataset.emotion);
+            }
+        });
+
+        const formData = {
+            mood_score: parseInt(moodScore.value),
+            energy_level: parseInt(energyLevel.value),
+            stress_level: parseInt(stressLevel.value),
+            sleep_hours: parseFloat(document.getElementById('sleepHours').value) || null,
+            emotions: selectedEmotions,
+            notes: document.getElementById('notes').value
+        };
+
+        fetch('/log-mood', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Mood logged successfully!');
+                window.location.href = '/dashboard';
+            } else {
+                alert('Error logging mood. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error logging mood. Please try again.');
+        });
+    });
+});
+</script>
+{% endblock %}

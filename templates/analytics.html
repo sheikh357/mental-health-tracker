@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - Mental Health Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-chart-line me-2"></i>Analytics & Insights</h1>
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-primary active" onclick="loadData(7)">7 Days</button>
+        <button type="button" class="btn btn-outline-primary" onclick="loadData(30)">30 Days</button>
+        <button type="button" class="btn btn-outline-primary" onclick="loadData(90)">90 Days</button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-smile fa-2x text-success mb-2"></i>
+                <h4 id="avgMoodStat">0</h4>
+                <p class="text-muted">Average Mood</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-battery-three-quarters fa-2x text-warning mb-2"></i>
+                <h4 id="avgEnergyStat">0</h4>
+                <p class="text-muted">Average Energy</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                <h4 id="avgStressStat">0</h4>
+                <p class="text-muted">Average Stress</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-bed fa-2x text-info mb-2"></i>
+                <h4 id="avgSleepStat">0h</h4>
+                <p class="text-muted">Average Sleep</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Mood Trends Over Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="trendsChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Emotion Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="emotionsChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Sleep vs Mood Correlation</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="sleepMoodChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>AI Insights</h5>
+            </div>
+            <div class="card-body" id="aiInsights">
+                <div class="text-center text-muted">
+                    <i class="fas fa-robot fa-3x mb-3"></i>
+                    <p>Loading AI insights...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentChart = null;
+let emotionsChart = null;
+let sleepChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadData(7);
+});
+
+function loadData(days) {
+    // Update active button
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    fetch(`/api/mood-data?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            updateStats(data);
+            createTrendsChart(data);
+            createEmotionsChart(data);
+            createSleepMoodChart(data);
+            generateAIInsights(data);
+        })
+        .catch(error => console.error('Error loading analytics data:', error));
+}
+
+function updateStats(data) {
+    if (data.length === 0) {
+        document.getElementById('avgMoodStat').textContent = 'No data';
+        document.getElementById('avgEnergyStat').textContent = 'No data';
+        document.getElementById('avgStressStat').textContent = 'No data';
+        document.getElementById('avgSleepStat').textContent = 'No data';
+        return;
+    }
+
+    const avgMood = data.reduce((sum, entry) => sum + (entry.mood_score || 0), 0) / data.length;
+    const avgEnergy = data.reduce((sum, entry) => sum + (entry.energy_level || 0), 0) / data.length;
+    const avgStress = data.reduce((sum, entry) => sum + (entry.stress_level || 0), 0) / data.length;
+    const sleepEntries = data.filter(entry => entry.sleep_hours);
+    const avgSleep = sleepEntries.length > 0 ? 
+        sleepEntries.reduce((sum, entry) => sum + entry.sleep_hours, 0) / sleepEntries.length : 0;
+
+    document.getElementById('avgMoodStat').textContent = avgMood.toFixed(1);
+    document.getElementById('avgEnergyStat').textContent = avgEnergy.toFixed(1);
+    document.getElementById('avgStressStat').textContent = avgStress.toFixed(1);
+    document.getElementById('avgSleepStat').textContent = avgSleep.toFixed(1) + 'h';
+}
+
+function createTrendsChart(data) {
+    const ctx = document.getElementById('trendsChart').getContext('2d');
+    
+    if (currentChart) {
+        currentChart.destroy();
+    }
+
+    const labels = data.map(entry => new Date(entry.date).toLocaleDateString());
+    
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Mood',
+                    data: data.map(entry => entry.mood_score),
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Energy',
+                    data: data.map(entry => entry.energy_level),
+                    borderColor: 'rgb(255, 206, 86)',
+                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Stress',
+                    data: data.map(entry => entry.stress_level),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10
+                }
+            }
+        }
+    });
+}
+
+function createEmotionsChart(data) {
+    const ctx = document.getElementById('emotionsChart').getContext('2d');
+    
+    if (emotionsChart) {
+        emotionsChart.destroy();
+    }
+
+    // Count emotions
+    const emotionsCount = {};
+    data.forEach(entry => {
+        if (entry.emotions) {
+            entry.emotions.forEach(emotion => {
+                emotionsCount[emotion] = (emotionsCount[emotion] || 0) + 1;
+            });
+        }
+    });
+
+    const emotions = Object.keys(emotionsCount);
+    const counts = Object.values(emotionsCount);
+
+    emotionsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: emotions.map(e => e.charAt(0).toUpperCase() + e.slice(1)),
+            datasets: [{
+                data: counts,
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+function createSleepMoodChart(data) {
+    const ctx = document.getElementById('sleepMoodChart').getContext('2d');
+    
+    if (sleepChart) {
+        sleepChart.destroy();
+    }
+
+    const sleepMoodData = data.filter(entry => entry.sleep_hours && entry.mood_score)
+                             .map(entry => ({
+                                 x: entry.sleep_hours,
+                                 y: entry.mood_score
+                             }));
+
+    sleepChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Sleep vs Mood',
+                data: sleepMoodData,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Sleep Hours'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Mood Score'
+                    },
+                    beginAtZero: true,
+                    max: 10
+                }
+            }
+        }
+    });
+}
+
+function generateAIInsights(data) {
+    const insights = [];
+    
+    if (data.length < 3) {
+        document.getElementById('aiInsights').innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p>Keep logging your mood for personalized AI insights!</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Mood trend analysis
+    const recentMoods = data.slice(-7).map(entry => entry.mood_score);
+    const avgRecentMood = recentMoods.reduce((sum, mood) => sum + mood, 0) / recentMoods.length;
+    const olderMoods = data.slice(0, -7).map(entry => entry.mood_score);
+    const avgOlderMood = olderMoods.length > 0 ? 
+        olderMoods.reduce((sum, mood) => sum + mood, 0) / olderMoods.length : avgRecentMood;
+
+    if (avgRecentMood > avgOlderMood + 0.5) {
+        insights.push({
+            type: 'positive',
+            icon: 'fas fa-arrow-up',
+            title: 'Improving Mood Trend',
+            text: 'Your mood has been improving recently. Keep up the good work!'
+        });
+    } else if (avgRecentMood < avgOlderMood - 0.5) {
+        insights.push({
+            type: 'warning',
+            icon: 'fas fa-arrow-down',
+            title: 'Declining Mood Trend',
+            text: 'Your mood has been declining. Consider talking to someone or trying relaxation techniques.'
+        });
+    }
+
+    // Sleep correlation
+    const sleepData = data.filter(entry => entry.sleep_hours && entry.mood_score);
+    if (sleepData.length > 5) {
+        const avgSleep = sleepData.reduce((sum, entry) => sum + entry.sleep_hours, 0) / sleepData.length;
+        const goodSleepEntries = sleepData.filter(entry => entry.sleep_hours >= 7);
+        const avgMoodWithGoodSleep = goodSleepEntries.length > 0 ?
+            goodSleepEntries.reduce((sum, entry) => sum + entry.mood_score, 0) / goodSleepEntries.length : 0;
+        const poorSleepEntries = sleepData.filter(entry => entry.sleep_hours < 7);
+        const avgMoodWithPoorSleep = poorSleepEntries.length > 0 ?
+            poorSleepEntries.reduce((sum, entry) => sum + entry.mood_score, 0) / poorSleepEntries.length : 0;
+
+        if (avgMoodWithGoodSleep > avgMoodWithPoorSleep + 0.5) {
+            insights.push({
+                type: 'info',
+                icon: 'fas fa-bed',
+                title: 'Sleep Affects Your Mood',
+                text: `You tend to feel better with adequate sleep (7+ hours). Your average sleep is ${avgSleep.toFixed(1)} hours.`
+            });
+        }
+    }
+
+    // Stress patterns
+    const highStressDays = data.filter(entry => entry.stress_level >= 7);
+    if (highStressDays.length > data.length * 0.3) {
+        insights.push({
+            type: 'warning',
+            icon: 'fas fa-exclamation-triangle',
+            title: 'High Stress Levels',
+            text: 'You\'ve been experiencing high stress frequently. Consider stress management techniques like meditation or exercise.'
+        });
+    }
+
+    // Render insights
+    if (insights.length === 0) {
+        insights.push({
+            type: 'info',
+            icon: 'fas fa-heart',
+            title: 'Keep Tracking',
+            text: 'Continue logging your mood regularly to get more personalized insights!'
+        });
+    }
+
+    const insightsHtml = insights.map(insight => `
+        <div class="alert alert-${insight.type === 'positive' ? 'success' : insight.type === 'warning' ? 'warning' : 'info'} d-flex align-items-center">
+            <i class="${insight.icon} me-3"></i>
+            <div>
+                <h6 class="mb-1">${insight.title}</h6>
+                <p class="mb-0 small">${insight.text}</p>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('aiInsights').innerHTML = insightsHtml;
+}
+</script>
+{% endblock %}
