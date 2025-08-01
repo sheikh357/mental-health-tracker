@@ -1,0 +1,142 @@
+{
+  "name": "Journal Sentiment Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "journal-analysis",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "journal-analysis-webhook"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You are a mental health AI assistant. Analyze the provided journal entry and return a JSON response with sentiment analysis, themes, insights, and emotional scores. Be empathetic and supportive in your analysis."
+            },
+            {
+              "role": "user", 
+              "message": "Please analyze this journal entry: {{ $json.content }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 500
+        }
+      },
+      "id": "openai-analysis",
+      "name": "OpenAI Analysis",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse OpenAI response and structure data\nconst response = items[0].json.choices[0].message.content;\n\ntry {\n  const analysis = JSON.parse(response);\n  \n  return [{\n    json: {\n      user_id: $json.user_id,\n      journal_entry_id: $json.journal_entry_id,\n      analysis: {\n        sentiment: analysis.sentiment || 0,\n        themes: analysis.themes || [],\n        insights: analysis.insights || [],\n        keywords: analysis.keywords || [],\n        emotion_scores: {\n          joy: analysis.emotion_scores?.joy || 0,\n          sadness: analysis.emotion_scores?.sadness || 0,\n          anger: analysis.emotion_scores?.anger || 0,\n          fear: analysis.emotion_scores?.fear || 0,\n          surprise: analysis.emotion_scores?.surprise || 0,\n          disgust: analysis.emotion_scores?.disgust || 0\n        }\n      },\n      timestamp: new Date().toISOString()\n    }\n  }];\n} catch (error) {\n  // Fallback if JSON parsing fails\n  return [{\n    json: {\n      user_id: $json.user_id,\n      journal_entry_id: $json.journal_entry_id,\n      analysis: {\n        sentiment: 0,\n        themes: ['general'],\n        insights: ['Analysis could not be completed'],\n        keywords: [],\n        emotion_scores: {\n          joy: 0, sadness: 0, anger: 0, fear: 0, surprise: 0, disgust: 0\n        }\n      },\n      error: error.message,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "process-analysis",
+      "name": "Process Analysis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $json.callback_url || 'http://localhost:3000/api/journal/analysis' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "user_id",
+              "value": "={{ $json.user_id }}"
+            },
+            {
+              "name": "journal_entry_id", 
+              "value": "={{ $json.journal_entry_id }}"
+            },
+            {
+              "name": "analysis",
+              "value": "={{ JSON.stringify($json.analysis) }}"
+            }
+          ]
+        }
+      },
+      "id": "send-result",
+      "name": "Send Result Back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Process Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Analysis": {
+      "main": [
+        [
+          {
+            "node": "Send Result Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1.0.0",
+  "meta": {
+    "description": "Analyzes journal entries using OpenAI GPT-4 for sentiment analysis, theme extraction, and emotional insights",
+    "tags": ["mental-health", "ai", "sentiment-analysis"]
+  }
+}
